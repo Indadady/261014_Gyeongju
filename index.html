@@ -33,6 +33,41 @@
         @media (max-width: 768px){ .hero-bg { background-attachment: scroll; } }
         #map { height: 360px; width: 100%; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 10; }
         @media (min-width: 1024px) { #map { height: 600px; } }
+        .map-wrap { position: relative; z-index: 0; }
+        .custom-icon { background: transparent; border: none; }
+        .map-pin-wrap { display: flex; flex-direction: column; align-items: center; }
+        .map-pin-dot {
+            width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; color: #fff;
+            border: 2px solid rgba(255,255,255,0.95);
+            box-shadow: 0 8px 16px rgba(15,23,42,0.18);
+        }
+        .map-pin-label {
+            margin-top: 3px;
+            background: rgba(255,255,255,0.96);
+            color: #0f172a;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            line-height: 1.2;
+            padding: 2px 6px;
+            border-radius: 6px;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(15,23,42,0.12);
+        }
+        .map-bus {
+            font-size: 22px;
+            line-height: 1;
+            filter: drop-shadow(0 4px 8px rgba(15,23,42,0.35));
+            transform-origin: center center;
+            display: inline-block;
+        }
+        #map-distance {
+            min-width: 7.5rem;
+            max-width: 9.5rem;
+        }
+        body.event-day section { scroll-margin-top: 132px; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .animate-fade-in-up { animation: fadeInUp 0.8s ease-out forwards; }
@@ -102,7 +137,7 @@
             body { background-color: #ffffff !important; font-size: 10pt; color: #1e293b !important; }
             a[href]:after { content: none !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            header, footer, section:not(#print-area), .no-print, #toast, #custom-confirm { display: none !important; }
+            header, footer, section:not(#print-area), .no-print, #toast, #custom-confirm, #event-day-bar { display: none !important; }
             main, body { padding: 0 !important; margin: 0 !important; width: 100% !important; background: white !important; }
             #print-area { display: block !important; width: 100%; color: #1e293b; font-family: 'Noto Sans KR', sans-serif; }
             .print-page { width: 100%; margin: 0; padding: 0; }
@@ -181,6 +216,19 @@
             <button onclick="shareLink()" class="shrink-0 p-2 text-slate-500 hover:text-blue-600" title="공유"><i class="fa-solid fa-share-nodes text-xl"></i></button>
         </nav>
     </header>
+
+    <div id="event-day-bar" class="hidden sticky top-16 z-40 bg-white/95 backdrop-blur-md border-b border-blue-100 shadow-sm no-print">
+        <div class="container mx-auto px-4 py-2.5">
+            <div class="grid grid-cols-2 gap-2 max-w-lg mx-auto">
+                <button type="button" onclick="goToTodaySchedule()" class="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border-2 border-blue-600 bg-blue-600 text-white font-bold text-sm shadow-sm active:scale-95 transition">
+                    <i class="fa-solid fa-calendar-day"></i> 오늘의 일정
+                </button>
+                <button type="button" onclick="goToTodayRoute()" class="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border-2 border-slate-300 bg-white text-slate-700 font-bold text-sm shadow-sm active:scale-95 transition">
+                    <i class="fa-solid fa-route"></i> 당일 동선
+                </button>
+            </div>
+        </div>
+    </div>
 
     <main>
         <section id="home" class="hero-bg min-h-[70vh] flex items-center justify-center text-center px-4 relative">
@@ -263,7 +311,17 @@
                     <button onclick="changeMapAndTab('day2')" class="map-tab-btn px-4 py-2 rounded-full text-sm font-bold border bg-white text-slate-600 border-slate-300">2일차 · 해운대·경주월드</button>
                     <button onclick="changeMapAndTab('day3')" class="map-tab-btn px-4 py-2 rounded-full text-sm font-bold border bg-white text-slate-600 border-slate-300">3일차 · 안동</button>
                 </div>
-                <div id="map"></div>
+                <div class="map-wrap">
+                    <div id="map"></div>
+                    <div id="map-status" class="absolute top-4 left-4 z-[400] bg-white/90 backdrop-blur px-3 py-1.5 rounded-xl shadow font-bold text-xs text-slate-700 pointer-events-none">
+                        <i class="fa-solid fa-route text-blue-600 mr-1"></i><span id="map-status-text">실제 도로 동선</span>
+                    </div>
+                    <div id="map-distance" class="hidden absolute top-4 right-4 z-[400] bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow pointer-events-none text-right">
+                        <p class="text-[10px] font-bold text-slate-400 tracking-wide">대략 이동거리</p>
+                        <p id="map-distance-leg" class="font-bold text-xs text-slate-800 leading-snug mt-0.5"></p>
+                        <p id="map-distance-km" class="font-black text-sm text-blue-700 mt-0.5"></p>
+                    </div>
+                </div>
                 <p id="map-hint" class="text-center text-sm text-slate-500 mt-3">전체 일정 동선</p>
                 <p class="text-center text-xs text-slate-400 mt-2">※ 교통·현지 상황에 따라 순서 및 시간이 변동될 수 있습니다.</p>
             </div>
@@ -283,9 +341,9 @@
 
                 <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
                     <div class="flex flex-wrap border-b bg-slate-50">
-                        <button onclick="changeMapAndTab('day1')" class="flex-1 min-w-[120px] py-4 font-bold text-sm text-blue-600 border-b-2 border-blue-600">DAY 1 (10/14)</button>
-                        <button onclick="changeMapAndTab('day2')" class="flex-1 min-w-[120px] py-4 font-bold text-sm text-slate-500 hover:text-blue-600">DAY 2 (10/15)</button>
-                        <button onclick="changeMapAndTab('day3')" class="flex-1 min-w-[120px] py-4 font-bold text-sm text-slate-500 hover:text-blue-600">DAY 3 (10/16)</button>
+                        <button onclick="changeMapAndTab('day1')" class="sched-tab flex-1 min-w-[120px] py-4 font-bold text-sm text-blue-600 border-b-2 border-blue-600">DAY 1 (10/14)</button>
+                        <button onclick="changeMapAndTab('day2')" class="sched-tab flex-1 min-w-[120px] py-4 font-bold text-sm text-slate-500 hover:text-blue-600">DAY 2 (10/15)</button>
+                        <button onclick="changeMapAndTab('day3')" class="sched-tab flex-1 min-w-[120px] py-4 font-bold text-sm text-slate-500 hover:text-blue-600">DAY 3 (10/16)</button>
                     </div>
 
                     <!-- DAY 1 -->
@@ -736,17 +794,63 @@
             t.classList.remove('translate-y-20', 'opacity-0');
             setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 3000);
         }
+        const TEST_DATE = "";
+        const EVENT_START = '2026-10-14';
+        const EVENT_END = '2026-10-16';
+        const EVENT_DAYS = {
+            '2026-10-14': 'day1',
+            '2026-10-15': 'day2',
+            '2026-10-16': 'day3'
+        };
+
+        function getGuidebookToday() {
+            const q = new URLSearchParams(location.search).get('test_date');
+            if (q && /^\d{4}-\d{2}-\d{2}$/.test(q)) return q;
+            if (TEST_DATE) return TEST_DATE;
+            return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+        }
+        function ymdDiffDays(a, b) {
+            const [ay, am, ad] = a.split('-').map(Number);
+            const [by, bm, bd] = b.split('-').map(Number);
+            return Math.round((Date.UTC(ay, am - 1, ad) - Date.UTC(by, bm - 1, bd)) / 86400000);
+        }
+        function getTodayDayKey() {
+            return EVENT_DAYS[getGuidebookToday()] || null;
+        }
+        function goToTodaySchedule() {
+            const dayKey = getTodayDayKey();
+            if (dayKey) changeMapAndTab(dayKey, { skipScroll: true });
+            document.getElementById('schedule')?.scrollIntoView({ behavior: 'smooth' });
+        }
+        function goToTodayRoute() {
+            const dayKey = getTodayDayKey();
+            if (dayKey) changeMapAndTab(dayKey, { skipScroll: true });
+            document.getElementById('map-section')?.scrollIntoView({ behavior: 'smooth' });
+        }
+        function initEventDayUI() {
+            const bar = document.getElementById('event-day-bar');
+            if (!bar) return;
+            const dayKey = getTodayDayKey();
+            bar.classList.toggle('hidden', !dayKey);
+            document.body.classList.toggle('event-day', !!dayKey);
+        }
         function updateDday() {
-            const start = new Date('2026-10-14T00:00:00');
-            const end = new Date('2026-10-16T23:59:59');
-            const today = new Date(); today.setHours(0,0,0,0);
-            const diff = Math.ceil((start - today) / 86400000);
+            const today = getGuidebookToday();
+            const diff = ymdDiffDays(EVENT_START, today);
             const badge = document.getElementById('d-day-badge');
-            if (diff > 0) { badge.className = 'bg-blue-600 text-white text-[10px] px-2.5 py-1 rounded-full font-bold animate-pulse'; badge.innerText = `D-${diff}`; }
-            else if (today <= end) { badge.className = 'bg-red-600 text-white text-[10px] px-2.5 py-1 rounded-full font-bold animate-pulse'; badge.innerText = `📍 ${Math.abs(diff)+1}일차`; }
-            else { badge.className = 'bg-slate-500 text-white text-[10px] px-2.5 py-1 rounded-full font-bold'; badge.innerText = '🏁 종료'; }
+            if (diff > 0) {
+                badge.className = 'bg-blue-600 text-white text-[10px] px-2.5 py-1 rounded-full font-bold animate-pulse';
+                badge.innerText = `D-${diff}`;
+            } else if (ymdDiffDays(EVENT_END, today) >= 0) {
+                badge.className = 'bg-red-600 text-white text-[10px] px-2.5 py-1 rounded-full font-bold animate-pulse';
+                badge.innerText = `📍 ${Math.abs(diff)+1}일차`;
+            } else {
+                badge.className = 'bg-slate-500 text-white text-[10px] px-2.5 py-1 rounded-full font-bold';
+                badge.innerText = '🏁 종료';
+            }
         }
         updateDday();
+        initEventDayUI();
 
         const CHECK_KEY = 'hambak_ms_checklist_v2';
         const CHECK_ITEMS = ['학생증·신분확인용','편한 운동화','여벌 속옷·양말','멀미약·개인약','양치·세면용품','보조배터리','얇은 겉옷','접이식 우산','물·간식','적정 용돈'];
@@ -813,88 +917,343 @@
         }
         fetchWeather();
 
-        let map, layerGroup, mapDrawSeq = 0;
+        let map;
+        let mapLayers = [];
+        let mapDrawSeq = 0;
+        let activeBus = null;
         const osrmCache = {};
         const mapHints = {
-            all: '전체 일정 — 신동 출발부터 귀교까지 도로 동선',
+            all: '전체 일정 — 신동 출발부터 귀교까지 실제 도로 동선',
             day1: '1일차 — 신동 → 태종대·송도 → 그리핀베이 호텔',
             day2: '2일차 — 해운대 아쿠아리움 → 경주월드 → 보문호반오리(불국사 본점) → 숙소',
             day3: '3일차 — 경주 → 안동 하회마을 → 길풍 → 신동 귀교'
         };
         const spots = {
-            school: { c: [37.2265, 128.7845], t: '함백중학교 (신동)', col: '#64748b', i: '🏫' },
-            gyunggido: { c: [35.0629, 129.0815], t: '경기도식당 (중식)', col: '#f97316', i: '🍲' },
-            taejongdae: { c: [35.0517, 129.0856], t: '태종대 (꼬마열차)', col: '#0ea5e9', i: '⛰️' },
-            songdo: { c: [35.0763, 129.0178], t: '송도 해상 케이블카', col: '#8b5cf6', i: '🚠' },
-            kuu: { c: [35.0975, 129.0351], t: '쿠우쿠우 부산광복점 (석식)', col: '#f43f5e', i: '🍣' },
-            griffinbay: { c: [35.0974, 129.0316], t: '그리핀베이 호텔', col: '#3b82f6', i: '🏨' },
-            aquarium: { c: [35.1588, 129.1604], t: '해운대 아쿠아리움', col: '#06b6d4', i: '🐠' },
-            gjworld: { c: [35.8373, 129.2811], t: '경주월드 (중식 밀쿠폰)', col: '#ec4899', i: '🎢' },
-            hoban: { c: [35.7856, 129.3272], t: '보문호반오리 불국사 본점 (석식)', col: '#ef4444', i: '🦆' },
-            chestertons: { c: [35.8805, 129.2244], t: '체스터톤스 경주', col: '#3b82f6', i: '🏨' },
-            hahoe: { c: [36.5392, 128.5187], t: '안동 하회마을', col: '#059669', i: '🏘️' },
-            gilpung: { c: [36.58102, 128.55492], t: '길풍 (중식)', col: '#f97316', i: '🍲' }
+            school: { c: [37.2265, 128.7845], t: '함백중학교 (신동)', s: '신동', col: '#64748b', i: '🏫' },
+            gyunggido: { c: [35.0629, 129.0815], t: '경기도식당 (중식)', s: '경기도식당', col: '#f97316', i: '🍲' },
+            taejongdae: { c: [35.0517, 129.0856], t: '태종대 (꼬마열차)', s: '태종대', col: '#0ea5e9', i: '⛰️' },
+            songdo: { c: [35.0763, 129.0178], t: '송도 해상 케이블카', s: '송도', col: '#8b5cf6', i: '🚠' },
+            kuu: { c: [35.0975, 129.0351], t: '쿠우쿠우 부산광복점 (석식)', s: '쿠우쿠우', col: '#f43f5e', i: '🍣' },
+            griffinbay: { c: [35.0974, 129.0316], t: '그리핀베이 호텔', s: '그리핀베이', col: '#3b82f6', i: '🏨' },
+            aquarium: { c: [35.1588, 129.1604], t: '해운대 아쿠아리움', s: '해운대아쿠아리움', col: '#06b6d4', i: '🐠' },
+            gjworld: { c: [35.8373, 129.2811], t: '경주월드 (중식 밀쿠폰)', s: '경주월드', col: '#ec4899', i: '🎢' },
+            hoban: { c: [35.7856, 129.3272], t: '보문호반오리 불국사 본점 (석식)', s: '보문호반오리', col: '#ef4444', i: '🦆' },
+            chestertons: { c: [35.8805, 129.2244], t: '체스터톤스 경주', s: '체스터톤스', col: '#3b82f6', i: '🏨' },
+            hahoe: { c: [36.5392, 128.5187], t: '안동 하회마을', s: '하회마을', col: '#059669', i: '🏘️' },
+            gilpung: { c: [36.58102, 128.55492], t: '길풍 (중식)', s: '길풍', col: '#f97316', i: '🍲' }
         };
         const routes = {
             all: {
-                p: ['school','gyunggido','taejongdae','songdo','kuu','griffinbay','aquarium','gjworld','hoban','chestertons','hahoe','gilpung'],
+                zoom: ['school','taejongdae','gjworld','hahoe'],
                 maxZoom: 7,
-                l: [
-                    { pts: [spots.school.c, spots.gyunggido.c, spots.taejongdae.c, spots.songdo.c, spots.kuu.c, spots.griffinbay.c], c: '#3b82f6' },
-                    { pts: [spots.griffinbay.c, spots.aquarium.c, spots.gjworld.c, spots.hoban.c, spots.chestertons.c], c: '#d97706' },
-                    { pts: [spots.chestertons.c, spots.hahoe.c, spots.gilpung.c, spots.school.c], c: '#16a34a' }
+                legs: [
+                    { from:'school', to:'gyunggido', color:'#3b82f6' },
+                    { from:'gyunggido', to:'taejongdae', color:'#3b82f6' },
+                    { from:'taejongdae', to:'songdo', color:'#3b82f6' },
+                    { from:'songdo', to:'kuu', color:'#3b82f6' },
+                    { from:'kuu', to:'griffinbay', color:'#3b82f6' },
+                    { from:'griffinbay', to:'aquarium', color:'#d97706' },
+                    { from:'aquarium', to:'gjworld', color:'#d97706' },
+                    { from:'gjworld', to:'hoban', color:'#d97706' },
+                    { from:'hoban', to:'chestertons', color:'#d97706' },
+                    { from:'chestertons', to:'hahoe', color:'#16a34a' },
+                    { from:'hahoe', to:'gilpung', color:'#16a34a' },
+                    { from:'gilpung', to:'school', color:'#16a34a' }
                 ]
             },
             day1: {
-                p: ['school','gyunggido','taejongdae','songdo','kuu','griffinbay'],
+                zoom: ['school','gyunggido','taejongdae','songdo','griffinbay'],
                 maxZoom: 10,
-                l: [{ pts: [spots.school.c, spots.gyunggido.c, spots.taejongdae.c, spots.songdo.c, spots.kuu.c, spots.griffinbay.c], c: '#3b82f6' }]
+                legs: [
+                    { from:'school', to:'gyunggido', color:'#3b82f6' },
+                    { from:'gyunggido', to:'taejongdae', color:'#3b82f6' },
+                    { from:'taejongdae', to:'songdo', color:'#3b82f6' },
+                    { from:'songdo', to:'kuu', color:'#3b82f6' },
+                    { from:'kuu', to:'griffinbay', color:'#3b82f6' }
+                ]
             },
             day2: {
-                p: ['griffinbay','aquarium','gjworld','hoban','chestertons'],
+                zoom: ['griffinbay','aquarium','gjworld','hoban','chestertons'],
                 maxZoom: 11,
-                l: [{ pts: [spots.griffinbay.c, spots.aquarium.c, spots.gjworld.c, spots.hoban.c, spots.chestertons.c], c: '#d97706' }]
+                legs: [
+                    { from:'griffinbay', to:'aquarium', color:'#d97706' },
+                    { from:'aquarium', to:'gjworld', color:'#d97706' },
+                    { from:'gjworld', to:'hoban', color:'#d97706' },
+                    { from:'hoban', to:'chestertons', color:'#d97706' }
+                ]
             },
             day3: {
-                p: ['chestertons','hahoe','gilpung','school'],
+                zoom: ['chestertons','hahoe','gilpung','school'],
                 maxZoom: 8,
-                l: [{ pts: [spots.chestertons.c, spots.hahoe.c, spots.gilpung.c, spots.school.c], c: '#16a34a' }]
+                legs: [
+                    { from:'chestertons', to:'hahoe', color:'#16a34a' },
+                    { from:'hahoe', to:'gilpung', color:'#16a34a' },
+                    { from:'gilpung', to:'school', color:'#16a34a' }
+                ]
             }
         };
 
-        async function roadPath(pts) {
-            const key = pts.map(p => p.join(',')).join('|');
+        function isMobileView() {
+            return window.matchMedia('(max-width: 768px)').matches;
+        }
+        function setMapStatus(text) {
+            const el = document.getElementById('map-status-text');
+            if (el) el.textContent = text;
+        }
+        function pathMeters(path) {
+            let total = 0;
+            for (let i = 1; i < path.length; i++) total += L.latLng(path[i - 1]).distanceTo(L.latLng(path[i]));
+            return total;
+        }
+        function formatApproxKm(meters) {
+            if (!meters || meters <= 0) return '';
+            if (meters < 800) return '약 ' + Math.round(meters / 100) * 100 + 'm';
+            const km = meters / 1000;
+            if (km < 10) return '약 ' + (Math.round(km * 2) / 2) + 'km';
+            if (km < 50) return '약 ' + Math.round(km) + 'km';
+            return '약 ' + Math.round(km / 5) * 5 + 'km';
+        }
+        function setMapDistance(fromKey, toKey, meters) {
+            const box = document.getElementById('map-distance');
+            const legEl = document.getElementById('map-distance-leg');
+            const kmEl = document.getElementById('map-distance-km');
+            if (!box || !legEl || !kmEl) return;
+            const label = formatApproxKm(meters);
+            if (!label) {
+                box.classList.add('hidden');
+                return;
+            }
+            box.classList.remove('hidden');
+            legEl.textContent = `${spots[fromKey].s} → ${spots[toKey].s}`;
+            kmEl.textContent = label;
+        }
+        function pinIcon(spot) {
+            return L.divIcon({
+                className: 'custom-icon',
+                html: `<div class="map-pin-wrap">
+                    <div class="map-pin-dot" style="background:${spot.col};">${spot.i}</div>
+                    <span class="map-pin-label">${spot.s}</span>
+                </div>`,
+                iconSize: [96, 52],
+                iconAnchor: [48, 16]
+            });
+        }
+        function headingDeg(a, b) {
+            const lat1 = a[0] * Math.PI / 180;
+            const lat2 = b[0] * Math.PI / 180;
+            const dLng = (b[1] - a[1]) * Math.PI / 180;
+            const y = Math.sin(dLng) * Math.cos(lat2);
+            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+            return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+        }
+        const BUS_REST_DEG = 90;
+        function busRotate(from, to) {
+            return headingDeg(from, to) - BUS_REST_DEG;
+        }
+        function busIcon(from, to) {
+            const rot = (from && to) ? busRotate(from, to) : 0;
+            return L.divIcon({
+                className: 'custom-icon',
+                html: `<div class="map-bus" style="transform:rotate(${rot}deg)">🚌</div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+        }
+        function applyBusHeading(marker, from, to) {
+            if (!marker) return;
+            const el = marker.getElement();
+            if (!el) return;
+            const bus = el.querySelector('.map-bus');
+            if (bus) bus.style.transform = `rotate(${busRotate(from, to)}deg)`;
+        }
+        function clearMapLayers() {
+            if (activeBus) activeBus._aborted = true;
+            activeBus = null;
+            mapLayers.forEach(layer => {
+                if (layer._aborted !== undefined) layer._aborted = true;
+                map.removeLayer(layer);
+            });
+            mapLayers = [];
+        }
+        async function roadRoute(fromC, toC) {
+            const key = fromC.join(',') + '|' + toC.join(',');
             if (osrmCache[key]) return osrmCache[key];
             try {
-                const coords = pts.map(p => `${p[1]},${p[0]}`).join(';');
+                const coords = `${fromC[1]},${fromC[0]};${toC[1]},${toC[0]}`;
                 const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`);
                 const data = await res.json();
                 if (data.code === 'Ok' && data.routes && data.routes[0]) {
                     const path = data.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
-                    osrmCache[key] = path;
-                    return path;
+                    const packed = { path, meters: data.routes[0].distance };
+                    osrmCache[key] = packed;
+                    return packed;
                 }
             } catch (e) { /* fall back to straight line */ }
-            return pts;
+            const path = [fromC, toC];
+            return { path, meters: pathMeters(path) };
+        }
+        function lineDuration(pixelLength, routeKey) {
+            const mobile = isMobileView();
+            const allView = routeKey === 'all';
+            const min = mobile ? (allView ? 1600 : 2800) : (allView ? 900 : 1400);
+            const max = mobile ? (allView ? 2800 : 5600) : (allView ? 1800 : 2800);
+            const pxPerMs = mobile ? (allView ? 0.22 : 0.12) : 0.28;
+            return Math.max(min, Math.min(max, pixelLength / pxPerMs));
+        }
+        function whenPathReady(polyline) {
+            return new Promise(resolve => {
+                let tries = 24;
+                const tick = () => {
+                    const el = polyline.getElement();
+                    if (el && typeof el.getTotalLength === 'function') resolve(el);
+                    else if (tries-- > 0) requestAnimationFrame(tick);
+                    else resolve(null);
+                };
+                requestAnimationFrame(tick);
+            });
+        }
+        function animateLine(polyline, duration) {
+            return new Promise(async resolve => {
+                const path = await whenPathReady(polyline);
+                if (!path) { resolve(duration); return; }
+                const length = path.getTotalLength();
+                const ms = duration || 1400;
+                path.style.transition = 'none';
+                path.style.strokeDasharray = length + ' ' + length;
+                path.style.strokeDashoffset = String(length);
+                path.getBoundingClientRect();
+                path.style.transition = `stroke-dashoffset ${ms}ms ease-in-out`;
+                path.style.strokeDashoffset = '0';
+                setTimeout(() => resolve(ms), ms + 40);
+            });
+        }
+        function moveMarkerAlong(marker, latlngs, duration) {
+            return new Promise(resolve => {
+                if (!marker || !latlngs || latlngs.length < 2) { resolve(); return; }
+                const dists = [0];
+                let total = 0;
+                for (let i = 1; i < latlngs.length; i++) {
+                    total += L.latLng(latlngs[i - 1]).distanceTo(L.latLng(latlngs[i]));
+                    dists.push(total);
+                }
+                if (total === 0) { resolve(); return; }
+                applyBusHeading(marker, latlngs[0], latlngs[1]);
+                const start = performance.now();
+                const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+                function frame(now) {
+                    if (marker._aborted) { resolve(); return; }
+                    const t = Math.min(1, (now - start) / duration);
+                    const target = total * ease(t);
+                    let i = 1;
+                    while (i < dists.length && dists[i] < target) i++;
+                    const a = latlngs[i - 1];
+                    const b = latlngs[Math.min(i, latlngs.length - 1)];
+                    const span = (dists[i] - dists[i - 1]) || 1;
+                    const f = (target - dists[i - 1]) / span;
+                    marker.setLatLng([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+                    applyBusHeading(marker, a, b);
+                    if (t < 1) requestAnimationFrame(frame);
+                    else resolve();
+                }
+                requestAnimationFrame(frame);
+            });
+        }
+
+        async function drawMap(routeKey) {
+            if (!map) return;
+            const seq = ++mapDrawSeq;
+            clearMapLayers();
+            const routeData = routes[routeKey] || routes.all;
+            const hint = mapHints[routeKey] || mapHints.all;
+            const hintEl = document.getElementById('map-hint');
+            if (hintEl) hintEl.textContent = hint;
+            setMapStatus('실제 도로 동선을 불러오는 중...');
+            setMapDistance('', '', 0);
+
+            const zoomKeys = routeData.zoom;
+            let bounds = L.latLngBounds(zoomKeys.map(key => spots[key].c));
+            map.fitBounds(bounds, { padding: [50, 50], maxZoom: routeData.maxZoom || 11 });
+            setTimeout(() => map.invalidateSize(), 120);
+
+            const legs = routeData.legs;
+            const packed = await Promise.all(legs.map(leg => roadRoute(spots[leg.from].c, spots[leg.to].c)));
+            if (seq !== mapDrawSeq) return;
+
+            packed.forEach(item => item.path.forEach(pt => bounds.extend(pt)));
+            map.fitBounds(bounds, { padding: [50, 50], maxZoom: routeData.maxZoom || 11 });
+            await new Promise(r => setTimeout(r, 280));
+            if (seq !== mapDrawSeq) return;
+
+            const ghost = L.polyline(packed.flatMap(item => item.path), { color: '#94a3b8', weight: 4, opacity: 0.22, lineJoin: 'round', lineCap: 'round' }).addTo(map);
+            mapLayers.push(ghost);
+
+            const placed = new Set();
+            const addPin = (key) => {
+                if (placed.has(key)) return;
+                placed.add(key);
+                const spot = spots[key];
+                const marker = L.marker(spot.c, { icon: pinIcon(spot), zIndexOffset: 200 })
+                    .addTo(map)
+                    .bindTooltip(`<b>${spot.t}</b>`, { direction: 'top', offset: [0, -16] });
+                mapLayers.push(marker);
+            };
+            addPin(legs[0].from);
+
+            const bus = L.marker(spots[legs[0].from].c, {
+                icon: busIcon(spots[legs[0].from].c, spots[legs[0].to].c),
+                zIndexOffset: 900
+            }).addTo(map);
+            bus._aborted = false;
+            activeBus = bus;
+            mapLayers.push(bus);
+
+            for (let i = 0; i < legs.length; i++) {
+                if (seq !== mapDrawSeq) return;
+                const leg = legs[i];
+                const path = packed[i].path;
+                const meters = packed[i].meters || pathMeters(path);
+                setMapStatus(`${spots[leg.from].s} → ${spots[leg.to].s}`);
+                setMapDistance(leg.from, leg.to, meters);
+                bus.setIcon(busIcon(spots[leg.from].c, spots[leg.to].c));
+                const poly = L.polyline(path, { color: leg.color, weight: 5, opacity: 0.95, lineJoin: 'round', lineCap: 'round' }).addTo(map);
+                mapLayers.push(poly);
+                const ready = await whenPathReady(poly);
+                const ms = lineDuration(ready ? ready.getTotalLength() : 400, routeKey);
+                await Promise.all([
+                    animateLine(poly, ms),
+                    moveMarkerAlong(bus, path, ms)
+                ]);
+                if (seq !== mapDrawSeq) return;
+                addPin(leg.to);
+                await new Promise(r => setTimeout(r, isMobileView() ? 280 : 140));
+            }
+            if (seq !== mapDrawSeq) return;
+            setMapStatus(hint);
+            if (bus && map.hasLayer(bus)) map.removeLayer(bus);
+            mapLayers = mapLayers.filter(layer => layer !== bus);
+            if (activeBus === bus) activeBus = null;
+            setTimeout(() => map.invalidateSize(), 160);
         }
 
         function initMap() {
             if (map || typeof L === 'undefined') return;
-            map = L.map('map', { scrollWheelZoom: false }).setView([35.5, 129.0], 8);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            map = L.map('map', { scrollWheelZoom: false, zoomControl: false });
+            L.control.zoom({ position: 'bottomleft' }).addTo(map);
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
                 maxZoom: 19,
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                attribution: 'Tiles &copy; Esri'
             }).addTo(map);
-            layerGroup = L.layerGroup().addTo(map);
-            changeMapAndTab(window.innerWidth < 1024 ? 'day1' : 'all');
+            const todayKey = getTodayDayKey();
+            const startKey = todayKey || (isMobileView() ? 'day1' : 'all');
+            changeMapAndTab(startKey, { skipScroll: true });
             setTimeout(() => map.invalidateSize(), 300);
         }
 
-        async function changeMapAndTab(dayId) {
+        function changeMapAndTab(dayId, opts) {
             if (dayId === 'all') document.querySelectorAll('.schedule-content').forEach(el => el.classList.remove('hidden'));
             else {
                 document.querySelectorAll('.schedule-content').forEach(el => el.classList.add('hidden'));
-                const t = document.getElementById(dayId); if (t) t.classList.remove('hidden');
+                const t = document.getElementById(dayId); if (t) { t.classList.remove('hidden'); t.classList.add('animate-fade-in-up'); }
             }
             document.querySelectorAll('.map-tab-btn').forEach(btn => {
                 const active = btn.getAttribute('onclick').includes(`'${dayId}'`);
@@ -903,31 +1262,22 @@
                 btn.classList.toggle('bg-white', !active); btn.classList.toggle('text-slate-600', !active);
                 btn.classList.toggle('border-slate-300', !active);
             });
+            const schedDay = dayId === 'all' ? 'day1' : dayId;
+            document.querySelectorAll('.sched-tab').forEach(btn => {
+                const active = btn.getAttribute('onclick').includes(`'${schedDay}'`);
+                btn.classList.toggle('text-blue-600', active);
+                btn.classList.toggle('border-b-2', active);
+                btn.classList.toggle('border-blue-600', active);
+                btn.classList.toggle('text-slate-500', !active);
+            });
             const hint = document.getElementById('map-hint');
             if (hint) hint.textContent = mapHints[dayId] || mapHints.all;
-            if (!map || !layerGroup) return;
-
-            const seq = ++mapDrawSeq;
-            const route = routes[dayId];
-            layerGroup.clearLayers();
-            let bounds = L.latLngBounds();
-            route.p.forEach((key, idx) => {
-                const s = spots[key];
-                const icon = L.divIcon({ className: 'map-marker-container', html: `<div class="map-marker-bubble" style="background-color:${s.col};width:32px;height:32px;animation:popIn 0.5s forwards ${idx*0.2}s">${s.i}</div>`, iconSize: [32,32], iconAnchor: [16,16] });
-                L.marker(s.c, {icon}).bindTooltip(`<b>${s.t}</b>`).addTo(layerGroup);
-                bounds.extend(s.c);
-            });
-            map.fitBounds(bounds, { padding: [40,40], maxZoom: route.maxZoom || 10 });
-
-            for (const line of route.l) {
-                const path = await roadPath(line.pts);
-                if (seq !== mapDrawSeq) return;
-                L.polyline(path, { color: line.c, weight: 4, opacity: 0.85 }).addTo(layerGroup);
-                path.forEach(pt => bounds.extend(pt));
-            }
-            if (seq === mapDrawSeq) {
-                map.fitBounds(bounds, { padding: [40,40], maxZoom: route.maxZoom || 10 });
-                setTimeout(() => map.invalidateSize(), 300);
+            if (!map) return;
+            drawMap(dayId);
+            if (!opts || !opts.skipScroll) {
+                if (window.innerWidth < 1024 && dayId !== 'all') {
+                    document.getElementById('map-section').scrollIntoView({ behavior: 'smooth' });
+                }
             }
         }
         document.addEventListener('DOMContentLoaded', initMap);
