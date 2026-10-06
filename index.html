@@ -64,8 +64,8 @@
             display: inline-block;
         }
         #map-distance {
-            min-width: 7.5rem;
-            max-width: 9.5rem;
+            min-width: 7.75rem;
+            max-width: 10.5rem;
         }
         body.event-day section { scroll-margin-top: 132px; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -317,9 +317,10 @@
                         <i class="fa-solid fa-route text-blue-600 mr-1"></i><span id="map-status-text">실제 도로 동선</span>
                     </div>
                     <div id="map-distance" class="hidden absolute top-4 right-4 z-[400] bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow pointer-events-none text-right">
-                        <p class="text-[10px] font-bold text-slate-400 tracking-wide">대략 이동거리</p>
+                        <p class="text-[10px] font-bold text-slate-400 tracking-wide">대략 이동</p>
                         <p id="map-distance-leg" class="font-bold text-xs text-slate-800 leading-snug mt-0.5"></p>
-                        <p id="map-distance-km" class="font-black text-sm text-blue-700 mt-0.5"></p>
+                        <p id="map-distance-time" class="font-black text-sm text-blue-700 mt-0.5"></p>
+                        <p id="map-distance-km" class="text-[10px] font-bold text-slate-500 mt-0.5"></p>
                     </div>
                 </div>
                 <p id="map-hint" class="text-center text-sm text-slate-500 mt-3">전체 일정 동선</p>
@@ -1013,19 +1014,38 @@
             if (km < 50) return '약 ' + Math.round(km) + 'km';
             return '약 ' + Math.round(km / 5) * 5 + 'km';
         }
-        function setMapDistance(fromKey, toKey, meters) {
+        function estimateSeconds(meters) {
+            if (!meters || meters <= 0) return 0;
+            return meters / (50 / 3.6);
+        }
+        function formatApproxTime(seconds) {
+            if (!seconds || seconds <= 0) return '';
+            const min = Math.max(1, Math.round(seconds / 60));
+            if (min < 8) return '약 ' + min + '분';
+            if (min < 55) return '약 ' + Math.max(5, Math.round(min / 5) * 5) + '분';
+            const rounded = Math.round(min / 10) * 10;
+            const h = Math.floor(rounded / 60);
+            const m = rounded % 60;
+            if (!h) return '약 ' + m + '분';
+            if (!m) return '약 ' + h + '시간';
+            return '약 ' + h + '시간 ' + m + '분';
+        }
+        function setMapDistance(fromKey, toKey, meters, seconds) {
             const box = document.getElementById('map-distance');
             const legEl = document.getElementById('map-distance-leg');
+            const timeEl = document.getElementById('map-distance-time');
             const kmEl = document.getElementById('map-distance-km');
-            if (!box || !legEl || !kmEl) return;
-            const label = formatApproxKm(meters);
-            if (!label) {
+            if (!box || !legEl || !timeEl || !kmEl) return;
+            const kmLabel = formatApproxKm(meters);
+            const timeLabel = formatApproxTime(seconds || estimateSeconds(meters));
+            if (!kmLabel && !timeLabel) {
                 box.classList.add('hidden');
                 return;
             }
             box.classList.remove('hidden');
             legEl.textContent = `${spots[fromKey].s} → ${spots[toKey].s}`;
-            kmEl.textContent = label;
+            timeEl.textContent = timeLabel;
+            kmEl.textContent = kmLabel;
         }
         function pinIcon(spot) {
             return L.divIcon({
@@ -1084,13 +1104,14 @@
                 const data = await res.json();
                 if (data.code === 'Ok' && data.routes && data.routes[0]) {
                     const path = data.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
-                    const packed = { path, meters: data.routes[0].distance };
+                    const packed = { path, meters: data.routes[0].distance, seconds: data.routes[0].duration };
                     osrmCache[key] = packed;
                     return packed;
                 }
             } catch (e) { /* fall back to straight line */ }
             const path = [fromC, toC];
-            return { path, meters: pathMeters(path) };
+            const meters = pathMeters(path);
+            return { path, meters, seconds: estimateSeconds(meters) };
         }
         function lineDuration(pixelLength, routeKey) {
             const mobile = isMobileView();
@@ -1168,7 +1189,7 @@
             const hintEl = document.getElementById('map-hint');
             if (hintEl) hintEl.textContent = hint;
             setMapStatus('실제 도로 동선을 불러오는 중...');
-            setMapDistance('', '', 0);
+            setMapDistance('', '', 0, 0);
 
             const zoomKeys = routeData.zoom;
             let bounds = L.latLngBounds(zoomKeys.map(key => spots[key].c));
@@ -1212,8 +1233,9 @@
                 const leg = legs[i];
                 const path = packed[i].path;
                 const meters = packed[i].meters || pathMeters(path);
+                const seconds = packed[i].seconds || estimateSeconds(meters);
                 setMapStatus(`${spots[leg.from].s} → ${spots[leg.to].s}`);
-                setMapDistance(leg.from, leg.to, meters);
+                setMapDistance(leg.from, leg.to, meters, seconds);
                 bus.setIcon(busIcon(spots[leg.from].c, spots[leg.to].c));
                 const poly = L.polyline(path, { color: leg.color, weight: 5, opacity: 0.95, lineJoin: 'round', lineCap: 'round' }).addTo(map);
                 mapLayers.push(poly);
